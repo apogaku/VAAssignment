@@ -1,0 +1,275 @@
+{
+  "$schema": "https://vega.github.io/schema/vega/v4.json",
+  "width": 720,
+  "height": 480,
+  "padding": 5,
+  "data": [
+    {
+      "name": "traffic",
+      "url": "https://raw.githubusercontent.com/apogaku/VAAssignment/master/losses2015_transformed.csv",
+      "format": {"type": "csv", "parse": "auto"},
+      "transform": [
+        {
+          "type": "project",
+          "fields": ["State_Code", "State_Abv", "Amount", "Damage_Descp"]
+        }
+      ]
+    },
+    {
+      "name": "Codes",
+      "url": "https://raw.githubusercontent.com/apogaku/VAAssignment/master/losses2015_transformed.csv",
+      "format": {"type": "csv", "parse": "auto"},
+      "transform": [
+        {
+          "type": "aggregate",
+          "groupby": ["State_Code"],
+          "fields": ["Amount"],
+          "ops": ["sum"],
+          "as": ["Amount_total"]
+        }
+      ]
+    },
+    {
+      "name": "states",
+      "url": "https://raw.githubusercontent.com/apogaku/VAAssignment/master/us-10m.json",
+      "format": {"type": "topojson", "feature": "states"},
+      "transform": [
+        {"type": "geopath", "projection": "projection"},
+        {
+          "type": "lookup",
+          "from": "Codes",
+          "key": "State_Code",
+          "fields": ["id"],
+          "values": ["Amount_total"]
+        },
+        {"type": "filter", "expr": "datum.Amount_total != null"},
+        {
+          "type": "lookup",
+          "from": "traffic",
+          "key": "State_Code",
+          "fields": ["id"],
+          "values": ["State_Abv"]
+        }
+      ]
+    },
+    {
+      "name": "Codes1",
+      "url": "https://raw.githubusercontent.com/apogaku/VAAssignment/master/losses2015_transformed.csv",
+      "format": {"type": "csv", "parse": "auto"},
+      "transform": [
+        {
+          "type": "aggregate",
+          "groupby": ["Damage_Descp"],
+          "fields": ["Amount"],
+          "ops": ["sum"],
+          "as": ["Amount_total"]
+        }
+      ]
+    }
+  ],
+  "projections": [{"name": "projection", "type": "albersUsa"}],
+  "signals": [
+     {
+      "name": "updateMap",
+      "value": {},
+   
+      "on": [
+        {"events": "@rect:mouseover", "update": "datum"},
+        {"events": "window:mouseup, window:touchend", "update": "{}"}
+      ]
+
+    },
+    {
+      "name": "active",
+      "value": {},
+      "on": [
+        {"events": "@rect:mousedown, @rect:touchstart", "update": "datum"},
+        {"events": "window:mouseup, window:touchend", "update": "{}"}
+      ]
+    },
+    {"name": "isActive", "update": "active.Damage_Descp"},
+    {
+      "name": "tooltip",
+      "value": {},
+      "on": [
+        {"events": "rect:mouseover", "update": "datum"},
+        {"events": "rect:mouseout", "update": "{}"}
+      ]
+    },
+    {"name": "detailDomain"},
+    {
+      "name": "timeline",
+      "value": {},
+      "on": [
+        {"events": "@rect:mouseover", "update": "isActive ? active : datum"},
+        {"events": "@rect:mouseout", "update": "active"},
+        {"events": {"signal": "active"}, "update": "active"}
+      ]
+    }
+  ],
+  "marks": [
+    {
+      "type": "group",
+      "name": "detail",
+      "encode": {
+        "enter": {"height": {"value": 1500}, "width": {"value": 1000}}
+      },
+      "scales": [
+        {
+          "name": "color",
+          "type": "ordinal",
+          "reverse": true,
+          "domain": {"data": "states", "field": "Amount_total"},
+          "range": {"scheme": "blues", "count": 7}
+        },
+        {
+          "name": "colorUpdate",
+          "type": "ordinal",
+          "reverse": true,
+          "domain": {"data": "states", "field": "Amount_total"},
+          "range": {"scheme": "blues", "count": 7}
+        }
+      ],
+      "axes": [],
+      "marks": [
+        {
+          "type": "group",
+          "encode": {
+            "enter": {
+              "height": {"field": {"group": "height"}},
+              "width": {"field": {"group": "width"}},
+              "clip": {"value": true}
+            }
+          },
+          "marks": [
+            {
+              "type": "shape",
+              "from": {"data": "states"},
+              "encode": {
+                "enter": {
+                  "tooltip": {
+                    "signal": "'State Abv :'+datum.State_Abv +'   Amount:  '+format(datum.Amount_total,',d' )"
+                  }
+                },
+                "update": {"fill": {"scale": "color", "field": "Amount_total"}},
+                "hover": {"fill": {"value": "red"}}
+              },
+              "transform": [{"type": "geoshape", "projection": "projection"}]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "group",
+      "name": "overview",
+      "encode": {
+        "enter": {
+          "x": {"value": 0},
+          "y": {"value": 700},
+          "height": {"value": 479},
+          "width": {"value": 400},
+          "fill": {"value": "transparent"}
+        }
+      },
+      "signals": [
+        {
+          "name": "brush",
+          "value": 0,
+          "on": [
+            {"events": "@overview:mouseover", "update": "{}"},
+            {
+              "events": "[@overview:mousedown, window:mouseup] > window:mousemove!",
+              "update": "[brush[0], clamp(x(), 0, width)]"
+            },
+            {
+              "events": {"signal": "delta"},
+              "update": "clampRange([anchor[0] + delta, anchor[1] + delta], 0, width)"
+            }
+          ]
+        },
+        {
+          "name": "anchor",
+          "value": null,
+          "on": [{"events": "@brush:mousedown", "update": "slice(brush)"}]
+        },
+        {
+          "name": "xdown",
+          "value": 0,
+          "on": [{"events": "@brush:mousedown", "update": "x()"}]
+        },
+        {
+          "name": "delta",
+          "value": 0,
+          "on": [
+            {
+              "events": "[@brush:mousedown, window:mouseup] > window:mousemove!",
+              "update": "x() - xdown"
+            }
+          ]
+        },
+        {
+          "name": "detailDomain",
+          "push": "outer",
+          "on": [
+            {
+              "events": {"signal": "brush"},
+              "update": "span(brush) ? invert('xOverview', brush) : null"
+            }
+          ]
+        }
+      ],
+      "scales": [
+        {
+          "name": "x",
+          "type": "linear",
+          "domain": {"data": "Codes1", "field": "Amount_total"},
+          "range": "width",
+          "nice": true
+        },
+        {
+          "name": "y",
+          "type": "band",
+          "domain": {
+            "data": "Codes1",
+            "field": "Damage_Descp",
+            "sort": {"op": "max", "field": "Amount_total", "order": "ascending"}
+          },
+          "range": "height",
+          "padding": 0.1
+        },
+        {
+          "name": "color",
+          "type": "ordinal",
+          "reverse": true,
+          "domain": {"data": "states", "field": "Amount_total"},
+          "range": {"scheme": "blues", "count": 7}
+        }
+      ],
+      "axes": [
+        {"scale": "x", "orient": "bottom", "format": ",d", "tickCount": 5},
+        {"scale": "y", "orient": "left"}
+      ],
+      "marks": [
+        {
+          "type": "rect",
+          "from": {"data": "Codes1"},
+          "encode": {
+            "update": {
+              "x": {"scale": "x", "value": 0},
+              "x2": {"scale": "x", "field": "Amount_total"},
+              "y": {"scale": "y", "field": "Damage_Descp"},
+              "height": {"scale": "y", "band": 1},
+              "tooltip": {
+                "signal": "'Damage Descp :'+tooltip.Damage_Descp+' Amount: '+format(tooltip.Amount_total,',d')"
+              },
+              "text": {"signal": "tooltip.Amount_total"},
+              "fill": {"value": "steelblue"}
+            },
+            "hover": {"fill": {"value": "red"}}
+          }
+        }
+      ]
+    }
+  ]
+}
