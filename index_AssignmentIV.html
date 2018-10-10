@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Dashboard D3</title>
+  
+
+<script src="http://d3js.org/d3.v4.min.js"></script>
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+    <script src="https://d3js.org/d3-queue.v2.min.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/d3-scale.v2.min.js"></script>
+ <style type="text/css">
+        svg .myrect {
+            fill: steelblue;
+            stroke-width: 0px;
+        }
+        svg .myrect:hover {
+            fill: red;
+        }
+ div.tooltip {   
+  position: absolute;           
+  text-align: center;           
+  width: 150px;                  
+  height: 40px;                 
+  padding: 2px;             
+  font: 12px sans-serif;        
+  background: lightsteelblue;   
+  border: 0px;      
+  border-radius: 8px;           
+  pointer-events: none;         
+}
+ .states {
+    fill: white;
+    stroke: #fff;
+    stroke-linejoin: round;
+  }
+
+  </style>
+        
+        <script type="text/javascript">
+            var myEntireData;
+           var myData_tree;
+            var myData_bar;
+            var maximum_bar=0,minimum_bar=0;
+
+            var margin_bar = {top: 10, right: 10, bottom: 30, left: 150};
+            var svgWidth_bar = 1250 - margin_bar.left - margin_bar.right;
+            var svgHeight_bar = 700 - margin_bar.top - margin_bar.bottom;
+
+     var margin_tree = {top: 10, right: 10, bottom: 30, left: 100};
+            var svgWidth_tree = 900 - margin_tree.left - margin_tree.right;
+            var svgHeight_tree = 600 - margin_tree.top - margin_tree.bottom;
+
+          var margin = {top: 10, right: 10, bottom: 30, left: 150};
+            var svgWidth = 1000;
+            var svgHeight = 800 - margin.top - margin.bottom;
+            function loadData()
+            {
+          d3.csv("https://raw.githubusercontent.com/apogaku/VAAssignment/master/losses2015_transformed.csv",function(data)
+              {
+                
+                  myEntireData=data;
+                d3.select("#svg_bar")
+                            .attr("width", svgWidth_bar + margin_bar.left + margin_bar.right)
+                            .attr("height", svgHeight_bar + margin_bar.top + margin_bar.bottom)
+                            .append("g")
+                            .attr("id", "svg_bar_g_id")
+                            .attr("transform", "translate(" + margin_bar.left + "," + margin_bar.top + ")");
+
+                d3.select("#svg_tree")
+                            .attr("width", svgWidth_tree + margin_tree.left + margin_tree.right)
+                            .attr("height", svgHeight_tree + margin_tree.top + margin_tree.bottom)
+                            .append("g")
+                            .attr("id", "svg_tree_g_id")
+                            .attr("transform", "translate(" + margin_tree.left + "," + margin_tree.top + ")");
+
+            generateDataBar(null);
+            createBarChart();
+            generateDataTree(null);
+            createTreeMap();   
+                
+                
+              }     );
+}
+            function generateDataBar(myCommodity)
+            {
+              if (myCommodity)
+              {
+                d3.select("#title_bar").text("Losses 2015 [$] State: " + myCommodity);
+
+                myData_bar = d3.nest()
+                            .key(function(d) { return d.Damage_Descp;})
+                            .rollup(function(d) { 
+                              return d3.sum(d, function(g) {return g.Amount; });
+                            })
+                            .entries(myEntireData.filter(function(d) {return d.State_Abv.replace(/ /g, '') == myCommodity;}));
+                 myData_bar.sort(function (a, b) {
+                  return b.value - a.value;
+                  })
+                
+              } else
+              {
+                d3.select("#title_bar").text("Losses 2015 [$] State: All");
+                myData_bar = d3.nest()
+                            .key(function(d) { return d.Damage_Descp;})
+                            .rollup(function(d) { 
+                              return d3.sum(d, function(g) {return g.Amount; });
+                            })
+                            .entries(myEntireData)  
+                   myData_bar.sort(function (a, b) {
+                  return b.value - a.value;
+                  })  
+              }
+
+            }
+                        function generateDataTree(myYear)
+            {
+              minimum_bar=0;
+              maximum_bar=0;
+              if (myYear)
+              {
+                d3.select("#title_tree").text("Losses 2015 [$] Damage Type: " + myYear);
+
+                myData_tree = d3.nest()
+                              .key(function(d) { return d.State_Code.replace(/ /g, '');})
+                              .rollup(function(d) { 
+                                return d3.sum(d, function(g) {return g.Amount; });
+                              })
+                              .entries(myEntireData.filter(function(d) {return d.Damage_Descp == myYear;}));
+                              console.log("Filtered data"+JSON.stringify(myData_tree) );
+                              console.log("Filtered data length"+myData_tree.length );
+                 for (var i = 0; i < myData_tree.length; i++) {
+      if( myData_tree[i].value < minimum_bar) minimum_bar = myData_tree[i].value;
+    if( myData_tree[i].value > maximum_bar) maximum_bar = myData_tree[i].value;
+           }
+           
+ console.log("maximum_bar for damage type"+maximum_bar+"minimum_bar"+minimum_bar);
+              } else
+              {
+                d3.select("#title_tree").text("Losses 2015 [$] Damage Type: All");
+
+                myData_tree = d3.nest()
+                              .key(function(d) { return d.State_Code.replace(/ /g, '');})
+                              .rollup(function(d) { 
+                                return d3.sum(d, function(g) {return g.Amount; });
+                              }) 
+                              .entries(myEntireData);               
+             for (var i = 0; i < myData_tree.length; i++) {
+      if( myData_tree[i].value < minimum_bar) minimum_bar = myData_tree[i].value;
+    if( myData_tree[i].value > maximum_bar) maximum_bar = myData_tree[i].value;
+           }
+           
+ console.log("maximum_bar"+maximum_bar+"minimum_bar"+minimum_bar);
+              }
+
+
+          
+              
+            }
+                        
+          function reSortRoot(root,value_key) {
+              //console.log("Calling");
+              for (var key in root) {
+                if (key == "key") {
+                  root.name = root.key;
+                  delete root.key;
+                }
+                if (key == "values") {
+                  root.children = [];
+                  for (item in root.values) {
+                    root.children.push(reSortRoot(root.values[item]));
+                  }
+                  delete root.values;
+                }
+              }
+              return root;
+            }
+            
+function createBarChart() {
+           var svg = d3.select("#svg_bar_g_id");
+                         
+              // generate scales
+              var xScale = d3.scaleBand()
+                                    .domain(myData_bar.map( function(d) 
+                                      { return d.key;
+                                      }))
+                                    .range([svgHeight_bar, 0]);
+              var yScale = d3.scaleLinear()
+                                    .domain([0, d3.max(myData_bar, function(d) { return d.value; })])
+                                    .range([0, svgWidth_bar]);
+                                      
+              var div = d3.select("body").append("div")   
+              .attr("class", "tooltip")               
+              .style("opacity", 0);
+              // generate axis
+              svg.append("g")
+                  .call(d3.axisLeft(xScale));
+              svg.append("g")
+                  .attr("transform", "translate(0," + (svgHeight_bar) + ")")
+                  .call(d3.axisBottom(yScale));
+              // generate bars
+               sortItems = function (a, b) {
+        
+                return b.value - a.value;
+                 };
+              svg.selectAll("rect")
+                  .data(myData_bar)
+                  .enter()
+                  .append("rect")
+                  .attr("x", 0)
+                  .attr("y", function(d, i)
+                    {
+                      return xScale(d.key);
+                    })
+                  .attr("height", function(d, i)
+                    {
+                      return xScale.bandwidth()-1;
+                    })
+                  .attr("width", function(d) {
+                 return yScale(d.value);
+                 })
+                   .on("mouseover", function(d) {      
+            div.transition()        
+                .duration(200)      
+                .style("opacity", .9);      
+            div .html("Damage Descp: "+d.key + "<br/> Amount: "  + d3.format(",d")(d.value))  
+                .style("left", (d3.event.pageX) + "px")     
+                .style("top", (d3.event.pageY - 28) + "px");
+                 generateDataTree(d.key);
+                 removeTreeMap();
+                 createTreeMap();   
+                                  })                  
+                .on("mouseout", function(d) {       
+            div.transition()        
+                .duration(500)      
+                .style("opacity", 0);   
+                generateDataTree(null);
+                    removeTreeMap();
+                    createTreeMap();
+                   })
+                  .attr("class", "myrect");  
+                        
+}
+            function removeTreeMap() {
+              var svg = d3.select("#svg_tree_g_id");
+              svg.selectAll("rect").remove();
+              svg.selectAll("clipPath").remove();
+              svg.selectAll("text").remove();
+            }
+ function removeBarChart() {
+              var svg = d3.select("#svg_bar_g_id");
+              svg.selectAll("rect").remove();
+               svg.selectAll("g").remove();
+              svg.selectAll("clipPath").remove();
+              svg.selectAll("text").remove();
+            }
+  function createTreeMap() {
+               var div = d3.select("body").append("div")
+          .attr("class", "tooltip")
+          .style("opacity", 0);
+               var width = 720,
+                      height = 500;
+              // generate scale colors
+               var projection = d3.geoAlbers()
+                      .scale(1000)
+                      .translate([width / 2, height / 2]);
+
+                  var path = d3.geoPath()
+                      .projection(projection);
+
+                  var svg = d3.select("body").append("svg")
+                      .attr("width", width)
+                      .attr("height", height);
+                  var minimum = 5, maximum = 24;
+
+                  var minimumColor = "#BFD3E6", maximumColor = "#88419D";
+                 // var colorScheme = d3.schemeGreens[4];
+                  var colorScale = d3.scaleSequential(d3.interpolateBlues)
+                                        .domain([minimum_bar,maximum_bar])
+
+          
+                  //Moves selection to front
+                  d3.selection.prototype.moveToFront = function() {
+                    return this.each(function(){
+                      this.parentNode.appendChild(this);
+                    });
+                  }; 
+
+                  //Moves selection to back
+                  d3.selection.prototype.moveToBack = function() { 
+                    return this.each(function() { 
+                    var firstChild = this.parentNode.firstChild; 
+                      if (firstChild) { 
+                        this.parentNode.insertBefore(this, firstChild); 
+                      } 
+                    }); 
+                  };  
+
+              // create hierarchical structure
+              // myData is just an array
+              var tmpTree = {};      
+              tmpTree.key = "Data";
+              tmpTree.values = myData_tree;
+          var StateById={};//create empty object
+              // rename key -> name and add children
+              //var myTree = reSortRoot(tmpTree);
+              //load topojson data
+             d3.queue()
+                      .defer(d3.json, "https://raw.githubusercontent.com/apogaku/VAAssignment/master/us-10m.json") // Load US states
+                      .defer(d3.csv, "https://raw.githubusercontent.com/apogaku/VAAssignment/master/losses2015_transformed.csv")
+                      .await(ready); // Run 'ready' when JSONs are loaded
+
+
+                      function ready(error, us, losses) {
+                    if (error) throw error;
+
+                   //console.log(JSON.stringify(myData_tree)); 
+                   // losses.forEach(function(d){
+                     // StateById[d.State_Code]=+d.Amount;
+                    //});
+
+                    var stateNames = {};
+                    //maptemplate.forEach(function(d) { stateByFIPS[d.FIPS] = d.state; });
+
+                    for (var i = 0; i < myData_tree.length; i++) {
+                              var dataState = myData_tree[i].key;
+                                 if( myData_tree[i].value < minimum_bar) minimum_bar = myData_tree[i].value;
+    if( myData_tree[i].value > maximum_bar) maximum_bar = myData_tree[i].value;
+                              
+                              var dataValue = myData_tree[i].value;
+                             
+                              StateById[dataState] = dataValue;
+
+                          
+                              for (var j = 0; j < losses.length; j++) {
+                                var stateabv = losses[j].State_Abv;
+                          
+                                if (dataState == losses[j].State_Code) {
+                              
+                                  
+                                  myData_tree[i].state_abv = stateabv;
+                                  stateNames[dataState] = stateabv;
+                                  
+                                  break;
+                                  
+                                }
+                              }
+
+                    }
+
+
+              // add cells
+              var svg = d3.select("#svg_tree_g_id");
+              var cell = svg.append("g")
+              .attr("class", "states")
+                      .selectAll("path")
+                        .data(topojson.feature(us, us.objects.states).features) // Bind TopoJSON data elements
+                      .enter().append("path")
+                     .attr("fill", function (d){
+                                  // Pull data for this country
+                                  //d.Amoun = data.get(d.id) || 0;
+                                  // Set the color
+                                 
+                                  if(StateById[d.id]==undefined)     return colorScale(0);
+                                  else       return colorScale(StateById[d.id]);
+                         })
+                        .attr("d", path)
+                        .style("stroke", "black")
+                   //Hovers
+                      .on("mouseover", function(d) {
+                         var sel = d3.select(this);
+                          sel.moveToFront();
+                        d3.select(this).transition().duration(300).style("opacity", 0.8);
+                        div.transition().duration(200)
+                        .style("opacity", 1)
+                        div.text("State Abv:"+stateNames[d.id]+"  Amount:"+ d3.format(",d")(StateById[d.id]))
+                        .style("left", (d3.event.pageX) + "px")
+                        .style("top", (d3.event.pageY -30) + "px");
+                        generateDataBar(stateNames[d.id]);
+                        removeBarChart();
+                        createBarChart();
+                         })
+                      .on("mouseout", function() {
+                       console.log("mouseout");
+                        var sel = d3.select(this);
+                          sel.moveToBack();
+                        d3.select(this)
+                        .transition().duration(300)
+                        .style("opacity", 1);
+                        div.transition().duration(300)
+                        .style("opacity", 0);
+                        generateDataBar(null);
+                    removeBarChart();
+                    createBarChart();
+
+                      })
+                        
+
+            }
+
+
+          }
+window.onload = loadData;
+</script>
+
+
+    </head>
+ <body>
+
+    <table align="center">
+    <tr><td><div id="title_bar" align="center">Losses 2015 [$] Damage Type: All</div><svg id="svg_bar"></svg></td></tr>
+    <tr><td><div id="title_tree" align="center">Losses 2015 [$] State: All</div><svg id="svg_tree"></svg></td></tr>
+    </table>
+
+    </body>
+</html>
